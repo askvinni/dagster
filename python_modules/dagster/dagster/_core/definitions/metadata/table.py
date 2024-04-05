@@ -1,4 +1,4 @@
-from typing import Mapping, NamedTuple, Optional, Sequence, Union, cast
+from typing import Mapping, NamedTuple, Optional, Sequence, TypedDict, Union, cast
 
 import dagster._check as check
 from dagster._annotations import PublicAttr, experimental, public
@@ -14,7 +14,10 @@ from dagster._serdes.serdes import (
 @experimental
 @whitelist_for_serdes
 class TableRecord(
-    NamedTuple("TableRecord", [("data", PublicAttr[Mapping[str, Union[str, int, float, bool]]])])
+    NamedTuple(
+        "TableRecord",
+        [("data", PublicAttr[Mapping[str, Union[str, int, float, bool]]])],
+    )
 ):
     """Represents one record in a table. Field keys are arbitrary strings-- field values must be
     strings, integers, floats, or bools.
@@ -33,6 +36,18 @@ class TableRecord(
 # ########################
 # ##### TABLE SCHEMA
 # ########################
+
+
+class ConstraintsDict(TypedDict):
+    nullable: Optional[bool]
+    unique: Optional[bool]
+    other: Optional[Sequence[str]]
+
+
+class ColumnPropertiesDict(TypedDict):
+    type: str
+    description: Optional[str]
+    contraints: Optional[ConstraintsDict]
 
 
 @whitelist_for_serdes
@@ -110,7 +125,10 @@ class TableSchema(
             cls,
             columns=check.sequence_param(columns, "columns", of_type=TableColumn),
             constraints=check.opt_inst_param(
-                constraints, "constraints", TableConstraints, default=_DEFAULT_TABLE_CONSTRAINTS
+                constraints,
+                "constraints",
+                TableConstraints,
+                default=_DEFAULT_TABLE_CONSTRAINTS,
             ),
         )
 
@@ -122,7 +140,32 @@ class TableSchema(
         """
         return TableSchema(
             columns=[
-                TableColumn(name=name, type=type_str) for name, type_str in name_type_dict.items()
+                TableColumn(name=name, type=type_str)
+                for name, type_str in name_type_dict.items()
+            ]
+        )
+
+    @public
+    @staticmethod
+    def from_column_properties_dict(
+        column_properties_dict: Mapping[str, ColumnPropertiesDict]
+    ):
+        """Constructs a TableSchema from a dictionary whose keys are column names and values map to
+        the arguments in `TableColumn` and its child `TableColumnConstraints`.
+        """
+        return TableSchema(
+            columns=[
+                TableColumn(
+                    name=name,
+                    type=properties.get("type"),
+                    description=properties.get("description"),
+                    constraints=TableColumnConstraints(
+                        nullable=properties.get("constraints", {}).get("nullable"),
+                        unique=properties.get("constraints", {}).get("unique"),
+                        other=properties.get("constraints", {}).get("other"),
+                    ),
+                )
+                for name, properties in column_properties_dict.items()
             ]
         )
 

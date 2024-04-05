@@ -38,7 +38,9 @@ from dagster._core.snap.node import build_node_defs_snapshot
 from dagster._serdes.serdes import deserialize_value, serialize_value
 
 
-def step_events_of_type(result: ExecutionResult, node_name: str, event_type: DagsterEventType):
+def step_events_of_type(
+    result: ExecutionResult, node_name: str, event_type: DagsterEventType
+):
     return [
         compute_step_event
         for compute_step_event in result.events_for_node(node_name)
@@ -108,7 +110,9 @@ def test_metadata_asset_observation():
     assert result
     assert result.success
 
-    observation_events = step_events_of_type(result, "the_op", DagsterEventType.ASSET_OBSERVATION)
+    observation_events = step_events_of_type(
+        result, "the_op", DagsterEventType.ASSET_OBSERVATION
+    )
     assert len(observation_events) == 1
     observation = observation_events[0].event_specific_data.asset_observation
     assert len(observation.metadata) == 5
@@ -136,7 +140,8 @@ def test_unknown_metadata_value():
         the_job.execute_in_process()
 
     assert (
-        str(exc_info.value) == 'Could not resolve the metadata value for "bad" to a known type. '
+        str(exc_info.value)
+        == 'Could not resolve the metadata value for "bad" to a known type. '
         "Its type was <class 'dagster._core.instance.DagsterInstance'>. "
         "Consider wrapping the value with the appropriate MetadataValue type."
     )
@@ -186,7 +191,8 @@ def test_bad_json_metadata_value():
         the_job.execute_in_process()
 
     assert (
-        str(exc_info.value) == 'Could not resolve the metadata value for "bad" to a known type. '
+        str(exc_info.value)
+        == 'Could not resolve the metadata value for "bad" to a known type. '
         "Value is not JSON serializable."
     )
 
@@ -261,7 +267,9 @@ def test_table_column_constraints_keys():
 
 
 # minimum and maximum aren't checked because they depend on the type of the column
-@pytest.mark.parametrize("key,value", list(bad_values["table_column_constraints"].items()))
+@pytest.mark.parametrize(
+    "key,value", list(bad_values["table_column_constraints"].items())
+)
 def test_table_column_constraints_values(key, value):
     kwargs = {
         "nullable": True,
@@ -325,10 +333,44 @@ def test_complex_table_schema():
 
 
 def test_table_schema_from_name_type_dict():
-    assert TableSchema.from_name_type_dict({"foo": "customtype", "bar": "string"}) == TableSchema(
+    assert TableSchema.from_name_type_dict(
+        {"foo": "customtype", "bar": "string"}
+    ) == TableSchema(
         columns=[
             TableColumn(name="foo", type="customtype"),
             TableColumn(name="bar", type="string"),
+        ],
+    )
+
+
+def test_table_schema_from_column_properties_dict():
+    assert TableSchema.from_column_properties_dict(
+        {
+            "foo": {
+                "type": "customtype",
+                "description": "desc",
+                "constraints": {
+                    "nullable": True,
+                    "unique": False,
+                    "other": ["some", "str"],
+                },
+            },
+            "bar": {
+                "type": "string",
+                "description": "some desc",
+            },
+        }
+    ) == TableSchema(
+        columns=[
+            TableColumn(
+                name="foo",
+                type="customtype",
+                description="desc",
+                constraints=TableColumnConstraints(
+                    nullable=True, unique=False, other=["some", "str"]
+                ),
+            ),
+            TableColumn(name="bar", type="string", description="some desc"),
         ],
     )
 
